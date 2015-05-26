@@ -1,6 +1,8 @@
 
 [TOC]
 
+# 1. 
+
 ## 1. prepare data
 
 ```bash
@@ -507,3 +509,46 @@ steps/lmrescore_const_arpa.sh --cmd run.pl data/lang_nosp_test_tgsmall data/lang
 steps/decode_fmllr.sh --nj 20 --cmd run.pl exp/tri3b/graph_nosp_tgsmall data/test_other exp/tri3b/decode_nosp_tgsmall_test_other
 steps/decode_fmllr.sh: no such file data/test_other/feats.scp
 ```
+
+# 2. Kaldi IO mechanisms
+
+## Basics
+
+standard interface:
+
+```cpp
+class SomeKaldiClass {
+ public:
+   void Read(std::istream &is, bool binary);
+   void Write(std::ostream &os, bool binary) const;
+};
+
+class SomeKaldiClass {
+ public:
+  void Read(std::istream &is, bool binary, bool add = false);
+};
+
+// we suppose that class_member_ is of type int32.
+void SomeKaldiClass::Read(std::istream &is, bool binary) {
+  ReadBasicType(binary, &class_member_);
+}
+void SomeKaldiClass::Write(std::ostream &is, bool binary) const {
+  WriteBasicType(binary, class_member_); 
+}
+```
+
+If add==true, the Read function would add whatever is on disk (e.g. statistics) to the current class's contents, if the class is not currently empty.
+
+- Size of basic type should be known in complie time, but floating types can be automatically converted. In **binary** format file, a character is used to represent sign and size of the basic type value. 
+- **No byte swapping**
+
+```cpp
+void ReadToken(std::istream &is, bool binary, std::string *token);
+void WriteToken(std::ostream &os, bool binary, const std::string & token);
+```
+
+- a token is an non-empty string with no spaces, eg. "<phone>"
+- ExpectToken is similar to ReadToken, except you give it the string you expect (and it will throw an exception if it doesn't get it).
+
+## How kaldi objects are stored in files
+
